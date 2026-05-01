@@ -160,7 +160,7 @@ function Header() {
     "header",
     { className: "topbar" },
     h("div", { className: "brand" }, h("div", { className: "brand-mark", "aria-hidden": true }, "Gg"), h("h1", null, "GemmaGlot")),
-    h("div", { className: "status-pill", "aria-label": "Backend status" }, h("span", { className: "status-dot", "aria-hidden": true }), "Google API first")
+    h("div", { className: "status-pill", "aria-label": "Backend status" }, h("span", { className: "status-dot", "aria-hidden": true }), "Google or vLLM")
   );
 }
 

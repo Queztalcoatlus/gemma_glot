@@ -29,7 +29,7 @@ The product should be designed so the user selects a target language before anal
 - Google API integration as the primary and only required inference backend for MVP.
 
 ### Deferred
-- Local LLM or Ollama fallback.
+- vLLM-hosted Gemma fallback for text and audio.
 - Regionalism or dialect marker detection.
 - Native-target pronunciation comparison or articulatory delta scoring.
 - Real-time streaming transcription or coaching.

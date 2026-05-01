@@ -1,10 +1,11 @@
 import asyncio
+import base64
 import json
 import urllib.error
 import urllib.request
 from typing import Any
 
-from backend.app.config import get_api_key, get_model_name, get_ollama_base_url, get_provider, load_env
+from backend.app.config import get_api_key, get_model_name, get_provider, get_vllm_api_key, get_vllm_base_url, load_env
 from backend.app.schemas import AudioAnalysisResponse, TextAnalysisResponse
 
 
@@ -21,7 +22,7 @@ Return only valid JSON matching this schema:
   "source_text": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2"}],
+  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
 Prioritize useful syntax patterns and learner-worthy vocabulary. Be concise.
@@ -38,7 +39,7 @@ Return only valid JSON matching this schema:
   "ipa_transcript": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2"}],
+  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
 Use readable IPA with helpful major allophones when confidence is high.
@@ -74,39 +75,97 @@ def _google_client():
     return genai.Client(api_key=api_key)
 
 
-async def _ollama_generate(prompt: str) -> str:
-    url = f"{get_ollama_base_url()}/api/generate"
+async def _vllm_chat(messages: list[dict[str, Any]]) -> str:
+    url = f"{get_vllm_base_url()}/chat/completions"
     payload = json.dumps(
         {
             "model": get_model_name(),
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 1800,
         }
     ).encode("utf-8")
+
+    headers = {"Content-Type": "application/json"}
+    api_key = get_vllm_api_key()
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     request = urllib.request.Request(
         url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
 
     try:
-        return await asyncio.to_thread(_send_ollama_request, request)
+        return await asyncio.to_thread(_send_vllm_request, request)
     except urllib.error.URLError as exc:
         raise InferenceError(
-            "Could not reach Ollama. Start Ollama, pull the configured MODEL, then retry."
+            "Could not reach vLLM. Start the vLLM OpenAI-compatible server, check VLLM_BASE_URL, then retry."
         ) from exc
 
 
-def _send_ollama_request(request: urllib.request.Request) -> str:
+def _send_vllm_request(request: urllib.request.Request) -> str:
     with urllib.request.urlopen(request, timeout=120) as response:
         payload = json.loads(response.read().decode("utf-8"))
-    text = payload.get("response")
+
+    try:
+        text = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise InferenceError("vLLM returned an unexpected response.") from exc
+
     if not isinstance(text, str) or not text.strip():
-        raise InferenceError("Ollama returned an empty response.")
+        raise InferenceError("vLLM returned an empty response.")
     return text
+
+
+def _vllm_text_messages(prompt: str) -> list[dict[str, Any]]:
+    return [{"role": "user", "content": prompt}]
+
+
+def _vllm_audio_messages(
+    audio_bytes: bytes,
+    filename: str,
+    content_type: str,
+    language: str,
+) -> list[dict[str, Any]]:
+    audio_format = _audio_format(filename, content_type)
+    audio_base64 = base64.b64encode(audio_bytes).decode("ascii")
+    return [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"{AUDIO_SYSTEM_PROMPT}\n\nTarget language: {language}. Analyze this audio file: {filename}",
+                },
+                {
+                    "type": "input_audio",
+                    "input_audio": {
+                        "data": audio_base64,
+                        "format": audio_format,
+                    },
+                },
+            ],
+        }
+    ]
+
+
+def _audio_format(filename: str, content_type: str) -> str:
+    suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if suffix in {"wav", "mp3", "webm", "mpeg", "mpga", "m4a", "ogg", "flac"}:
+        return suffix
+
+    content_type_formats = {
+        "audio/wav": "wav",
+        "audio/wave": "wav",
+        "audio/x-wav": "wav",
+        "audio/mpeg": "mp3",
+        "audio/mp3": "mp3",
+        "audio/webm": "webm",
+    }
+    return content_type_formats.get(content_type, "wav")
 
 
 async def analyze_text(source_text: str, language: str) -> TextAnalysisResponse:
@@ -114,10 +173,10 @@ async def analyze_text(source_text: str, language: str) -> TextAnalysisResponse:
         raise InferenceError(f"{language} is not supported yet.")
 
     provider = get_provider()
-    if provider == "ollama":
+    if provider == "vllm":
         prompt = f"{TEXT_SYSTEM_PROMPT}\n\nTarget language: {language}\nInput:\n{source_text}"
         try:
-            payload = _extract_json(await _ollama_generate(prompt))
+            payload = _extract_json(await _vllm_chat(_vllm_text_messages(prompt)))
             return TextAnalysisResponse.model_validate(payload)
         except Exception as exc:
             raise InferenceError(str(exc)) from exc
@@ -145,11 +204,12 @@ async def analyze_audio(
         raise InferenceError(f"{language} is not supported yet.")
 
     provider = get_provider()
-    if provider == "ollama":
-        raise InferenceError(
-            "Ollama does not accept raw audio through this app yet. Use text analysis with Ollama, "
-            "or switch PROVIDER=google with an audio-capable model for audio input."
-        )
+    if provider == "vllm":
+        try:
+            payload = _extract_json(await _vllm_chat(_vllm_audio_messages(audio_bytes, filename, content_type, language)))
+            return AudioAnalysisResponse.model_validate(payload)
+        except Exception as exc:
+            raise InferenceError(str(exc)) from exc
 
     client = _google_client()
     if client is None:

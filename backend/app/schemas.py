@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 LanguageCode = Literal["Spanish"]
-Level = Literal["A1", "A2", "B1", "B2", "C1", "C2"]
+Level = Literal["A1", "A2", "B1", "B2", "C1", "C2", "N/A"]
 
 
 class SyntaxFeature(BaseModel):

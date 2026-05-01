@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.app.config import get_model_name, get_ollama_base_url, get_provider, load_env
+from backend.app.config import get_model_name, get_provider, get_vllm_api_key, get_vllm_base_url, load_env
 
 
 class ConfigTests(unittest.TestCase):
@@ -50,18 +50,22 @@ class ConfigTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(get_provider(), "google")
 
-    def test_provider_accepts_ollama(self) -> None:
-        with patch.dict(os.environ, {"PROVIDER": "ollama"}, clear=True):
-            self.assertEqual(get_provider(), "ollama")
+    def test_provider_accepts_vllm(self) -> None:
+        with patch.dict(os.environ, {"PROVIDER": "vllm"}, clear=True):
+            self.assertEqual(get_provider(), "vllm")
 
     def test_provider_rejects_unknown_value(self) -> None:
         with patch.dict(os.environ, {"PROVIDER": "nope"}, clear=True):
-            with self.assertRaisesRegex(ValueError, "PROVIDER must be google or ollama"):
+            with self.assertRaisesRegex(ValueError, "PROVIDER must be google or vllm"):
                 get_provider()
 
-    def test_ollama_base_url_strips_trailing_slash(self) -> None:
-        with patch.dict(os.environ, {"OLLAMA_BASE_URL": "http://localhost:11434/"}, clear=True):
-            self.assertEqual(get_ollama_base_url(), "http://localhost:11434")
+    def test_vllm_base_url_strips_trailing_slash(self) -> None:
+        with patch.dict(os.environ, {"VLLM_BASE_URL": "http://localhost:8001/v1/"}, clear=True):
+            self.assertEqual(get_vllm_base_url(), "http://localhost:8001/v1")
+
+    def test_vllm_api_key_is_optional(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(get_vllm_api_key())
 
 
 if __name__ == "__main__":

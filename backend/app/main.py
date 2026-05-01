@@ -37,7 +37,7 @@ async def index() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "backend": "google-api-first"}
+    return {"status": "ok", "backend": "google-or-vllm"}
 
 
 @app.post("/api/analyze/text")
