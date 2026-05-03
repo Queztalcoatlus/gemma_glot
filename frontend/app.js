@@ -568,7 +568,7 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
         "div",
         { className: "transcript" },
         h("p", { className: "quote" }, h("span", { className: "quote-label" }, "Text"), transcript),
-        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, "IPA"), result.ipa_transcript) : null
+        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, "Heard IPA"), result.ipa_transcript) : null
       )
     ),
     h("section", { className: "result-section" }, h("h3", { className: "section-label" }, "Translation"), h("p", { className: "quote translation" }, result.english_translation)),
