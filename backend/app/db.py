@@ -3,6 +3,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from backend.app.config import ROOT, load_env
@@ -42,6 +43,26 @@ def init_db() -> None:
     from backend.app import models
 
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns()
+
+
+def _add_missing_columns() -> None:
+    inspector = inspect(engine)
+    if "vocabulary_terms" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("vocabulary_terms")}
+    statements = []
+    if "part_of_speech" not in columns:
+        statements.append("ALTER TABLE vocabulary_terms ADD COLUMN part_of_speech VARCHAR(16) NOT NULL DEFAULT 'other'")
+    if "gender" not in columns:
+        statements.append("ALTER TABLE vocabulary_terms ADD COLUMN gender VARCHAR(8) NOT NULL DEFAULT 'n/a'")
+
+    if not statements:
+        return
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
 
 
 def get_db() -> Generator[Session, None, None]:

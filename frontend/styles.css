@@ -138,6 +138,10 @@ button:disabled {
   display: flex;
 }
 
+.vocab-meta {
+  display: flex;
+}
+
 .topbar {
   align-items: center;
   justify-content: space-between;
@@ -230,9 +234,7 @@ h1,
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr);
   gap: 18px;
-  align-items: start;
 }
 
 .panel {
@@ -338,7 +340,8 @@ h1,
 
 textarea {
   width: 100%;
-  min-height: 286px;
+  min-height: calc((1em * 1.55 * 3) + 32px);
+  overflow: hidden;
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -603,6 +606,13 @@ button:focus-visible {
   gap: 8px;
 }
 
+.vocab-meta {
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .base-form-label {
   color: var(--muted);
   font-size: 13px;
@@ -613,7 +623,6 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  margin-bottom: 8px;
   border-radius: 999px;
   background: var(--level-bg);
   color: var(--level-ink);
@@ -719,7 +728,6 @@ button:focus-visible {
 }
 
 @media (max-width: 920px) {
-  .workspace,
   .review-layout {
     grid-template-columns: 1fr;
   }

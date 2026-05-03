@@ -147,6 +147,8 @@ class GemmaGlotApiTests(unittest.TestCase):
                 "analysis_id": analysis["analysis_id"],
                 "term": word["term"],
                 "lemma": word["lemma"],
+                "part_of_speech": word["part_of_speech"],
+                "gender": word["gender"],
                 "definition": word["definition"],
                 "level": word["level"],
             },
@@ -155,6 +157,8 @@ class GemmaGlotApiTests(unittest.TestCase):
 
         self.assertEqual(save_response.status_code, 200)
         self.assertEqual(vocab_response.json()[0]["lemma"], word["lemma"])
+        self.assertEqual(vocab_response.json()[0]["part_of_speech"], word["part_of_speech"])
+        self.assertEqual(vocab_response.json()[0]["gender"], word["gender"])
         self.assertEqual(vocab_response.json()[0]["occurrences"][0]["surface_form"], word["term"])
 
     def test_vllm_audio_builds_multimodal_chat_request(self) -> None:

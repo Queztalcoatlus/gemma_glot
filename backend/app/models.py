@@ -60,6 +60,8 @@ class VocabularyTerm(Base):
     language: Mapped[str] = mapped_column(String(40), nullable=False)
     lemma: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     display_term: Mapped[str] = mapped_column(String(255), nullable=False)
+    part_of_speech: Mapped[str] = mapped_column(String(16), default="other", nullable=False)
+    gender: Mapped[str] = mapped_column(String(8), default="n/a", nullable=False)
     definition: Mapped[str] = mapped_column(Text, nullable=False)
     level: Mapped[str] = mapped_column(String(8), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True, nullable=False)

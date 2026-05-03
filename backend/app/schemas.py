@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 LanguageCode = Literal["Spanish"]
 Level = Literal["A1", "A2", "B1", "B2", "C1", "C2", "N/A"]
+PartOfSpeech = Literal["n.", "v.", "adj.", "adv.", "pron.", "prep.", "conj.", "interj.", "expr.", "other"]
+Gender = Literal["m.", "f.", "m./f.", "n/a"]
 
 
 class SyntaxFeature(BaseModel):
@@ -16,6 +18,8 @@ class SyntaxFeature(BaseModel):
 class VocabularyItem(BaseModel):
     term: str = Field(min_length=1)
     lemma: str | None = Field(default=None, min_length=1)
+    part_of_speech: PartOfSpeech = "other"
+    gender: Gender = "n/a"
     definition: str = Field(min_length=1)
     level: Level
 
@@ -77,6 +81,8 @@ class ReviewVocabularyOccurrence(BaseModel):
 class ReviewVocabularyEntry(BaseModel):
     term: str
     lemma: str
+    part_of_speech: PartOfSpeech = "other"
+    gender: Gender = "n/a"
     definition: str
     level: Level
     occurrences: list[ReviewVocabularyOccurrence]
@@ -86,5 +92,7 @@ class SaveVocabularyRequest(BaseModel):
     analysis_id: int
     term: str = Field(min_length=1)
     lemma: str | None = Field(default=None, min_length=1)
+    part_of_speech: PartOfSpeech = "other"
+    gender: Gender = "n/a"
     definition: str = Field(min_length=1)
     level: Level

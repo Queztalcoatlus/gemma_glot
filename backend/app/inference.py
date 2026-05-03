@@ -22,10 +22,10 @@ Return only valid JSON matching this schema:
   "source_text": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
+  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "part_of_speech": "n.|v.|adj.|adv.|pron.|prep.|conj.|interj.|expr.|other", "gender": "m.|f.|m./f.|n/a", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
-Prioritize useful syntax patterns and learner-worthy vocabulary. For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate. Be concise.
+Prioritize useful syntax patterns and learner-worthy vocabulary. For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate. Include part_of_speech for every vocabulary item. Use gender only for nouns and noun-like entries; use "n/a" otherwise. Be concise.
 """
 
 
@@ -41,12 +41,12 @@ Return only valid JSON matching this schema:
   "ipa_transcript": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
+  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "part_of_speech": "n.|v.|adj.|adv.|pron.|prep.|conj.|interj.|expr.|other", "gender": "m.|f.|m./f.|n/a", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
 For ipa_transcript, preserve the speaker's heard dialect features when audible, including seseo/distincion, yeismo or lleismo, /s/ aspiration or deletion, final consonant weakening, intervocalic /d/ weakening or deletion, /x/ or /h/ realizations, /r/ and /rr/ variants, and major vowel/consonant reductions. Do not normalize these to textbook Castilian or textbook Latin American pronunciation unless that is what the audio contains.
 Use a broad-but-faithful IPA transcription. Include narrow allophones only when confidence is high. If the audio is unclear or the model cannot reliably hear a dialect feature, use a conservative broad transcription and add a note about the uncertainty.
-For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate.
+For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate. Include part_of_speech for every vocabulary item. Use gender only for nouns and noun-like entries; use "n/a" otherwise.
 """
 
 
@@ -264,18 +264,24 @@ def _mock_text_response(source_text: str) -> TextAnalysisResponse:
             {
                 "term": "sonaba",
                 "lemma": "sonar",
+                "part_of_speech": "v.",
+                "gender": "n/a",
                 "definition": 'Imperfect form of "sonar", used for dreams or recurring hopes.',
                 "level": "A2",
             },
             {
                 "term": "imagine",
                 "lemma": "imaginar",
+                "part_of_speech": "v.",
+                "gender": "n/a",
                 "definition": 'Preterite form of "imaginar", meaning "I imagined."',
                 "level": "B1",
             },
             {
                 "term": "forma de ver",
                 "lemma": "forma de ver",
+                "part_of_speech": "expr.",
+                "gender": "f.",
                 "definition": "Expression meaning a way of seeing, understanding, or interpreting something.",
                 "level": "B1",
             },
@@ -304,13 +310,24 @@ def _mock_audio_response(filename: str) -> AudioAnalysisResponse:
             {
                 "term": "sonaba",
                 "lemma": "sonar",
+                "part_of_speech": "v.",
+                "gender": "n/a",
                 "definition": 'Imperfect form of "sonar", used for recurring or background dreams.',
                 "level": "A2",
             },
-            {"term": "viajar", "lemma": "viajar", "definition": "To travel; a high-frequency infinitive.", "level": "A1"},
+            {
+                "term": "viajar",
+                "lemma": "viajar",
+                "part_of_speech": "v.",
+                "gender": "n/a",
+                "definition": "To travel; a high-frequency infinitive.",
+                "level": "A1",
+            },
             {
                 "term": "America Latina",
                 "lemma": "America Latina",
+                "part_of_speech": "n.",
+                "gender": "f.",
                 "definition": "Latin America; useful regional/geographic phrase.",
                 "level": "A2",
             },

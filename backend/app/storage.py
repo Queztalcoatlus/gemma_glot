@@ -74,6 +74,8 @@ def list_vocabulary(db: Session, user: User) -> list[ReviewVocabularyEntry]:
         ReviewVocabularyEntry(
             term=term.display_term,
             lemma=term.lemma,
+            part_of_speech=term.part_of_speech,
+            gender=term.gender,
             definition=term.definition,
             level=term.level,
             occurrences=[
@@ -111,6 +113,8 @@ def save_vocabulary_selection(db: Session, user: User, item: SaveVocabularyReque
             language=analysis.language,
             lemma=lemma,
             display_term=lemma,
+            part_of_speech=item.part_of_speech,
+            gender=item.gender,
             definition=item.definition,
             level=item.level,
         )
@@ -119,6 +123,8 @@ def save_vocabulary_selection(db: Session, user: User, item: SaveVocabularyReque
     else:
         term.definition = item.definition
         term.level = item.level
+        term.part_of_speech = item.part_of_speech
+        term.gender = item.gender
 
     existing = db.scalar(
         select(VocabularySave).where(
@@ -195,6 +201,8 @@ def _term_entry(db: Session, user: User, term_id: int) -> ReviewVocabularyEntry:
     return ReviewVocabularyEntry(
         term=term.display_term,
         lemma=term.lemma,
+        part_of_speech=term.part_of_speech,
+        gender=term.gender,
         definition=term.definition,
         level=term.level,
         occurrences=[

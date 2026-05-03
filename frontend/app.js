@@ -1,7 +1,7 @@
-const { createElement: h, useEffect, useRef, useState } = React;
+const { createElement: h, useEffect, useLayoutEffect, useRef, useState } = React;
 
 const SAMPLE_TEXT =
-  "Cuando era nino, siempre sonaba con viajar por America Latina, pero nunca imagine que aprender otro idioma cambiaria tanto mi forma de ver el mundo.";
+  "¡Hola, Mundo!";
 const MAX_RECORDING_SECONDS = 60;
 const TOKEN_KEY = "gemmaglot.token";
 const USERNAME_KEY = "gemmaglot.username";
@@ -267,6 +267,8 @@ function AnalyzeView({ token, onAuthExpired }) {
             analysis_id: result.analysis_id,
             term: item.term,
             lemma: item.lemma || item.term,
+            part_of_speech: item.part_of_speech || "other",
+            gender: item.gender || "n/a",
             definition: item.definition,
             level: item.level,
           }),
@@ -337,6 +339,14 @@ function InputPanel(props) {
     setRecordedBlob,
     setSeconds,
   } = props;
+  const textareaRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || mode !== "text") return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [mode, text]);
 
   return h(
     "section",
@@ -362,7 +372,7 @@ function InputPanel(props) {
       "div",
       { className: "input-body" },
       mode === "text"
-        ? h("textarea", { "aria-label": "Text to analyze", value: text, onChange: (event) => setText(event.target.value) })
+        ? h("textarea", { ref: textareaRef, rows: 3, "aria-label": "Text to analyze", value: text, onChange: (event) => setText(event.target.value) })
         : h(AudioPane, {
             setFile,
             selectedAudioLabel,
@@ -536,7 +546,12 @@ function VocabularyList({ vocabulary, openAnalysis }) {
       h(
         "article",
         { className: "word-item", key: entry.term },
-        h("div", { className: "word-heading" }, h("strong", null, entry.term), h("span", { className: "level" }, entry.level)),
+        h(
+          "div",
+          { className: "word-heading" },
+          h("strong", null, entry.term),
+          h(VocabMeta, { item: entry })
+        ),
         h("p", null, entry.definition),
         h(
           "div",
@@ -595,7 +610,7 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
           h(
             "article",
             { className: "vocab-card", key: `${item.term}-${index}` },
-            h("div", { className: "vocab-card-header" }, h("strong", null, item.term), h("span", { className: "level" }, item.level)),
+            h("div", { className: "vocab-card-header" }, h("strong", null, item.term), h(VocabMeta, { item })),
             h("span", { className: "base-form-label" }, item.lemma && item.lemma !== item.term ? `Base form: ${item.lemma}` : "Base form matches term"),
             h("p", null, item.definition),
             onSaveWord
@@ -617,6 +632,17 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
     result.notes && result.notes.length
       ? h("section", { className: "result-section" }, h("h3", { className: "section-label" }, "Notes"), h("ul", { className: "notes" }, result.notes.map((note, index) => h("li", { key: index }, note))))
       : null
+  );
+}
+
+function VocabMeta({ item }) {
+  const tags = [item.part_of_speech || "other"];
+  if (item.gender && item.gender !== "n/a") tags.push(item.gender);
+  tags.push(item.level);
+  return h(
+    "span",
+    { className: "vocab-meta" },
+    tags.map((tag) => h("span", { className: "level", key: tag }, tag))
   );
 }
 
