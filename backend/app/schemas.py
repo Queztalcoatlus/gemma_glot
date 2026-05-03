@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -38,3 +39,40 @@ class AudioAnalysisResponse(AnalysisBase):
 
 
 AnalysisResponse = TextAnalysisResponse | AudioAnalysisResponse
+
+
+class AuthRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class AuthResponse(BaseModel):
+    token: str
+    username: str
+
+
+class UserResponse(BaseModel):
+    username: str
+
+
+class ReviewHistoryItem(BaseModel):
+    id: int
+    input_type: Literal["text", "audio"]
+    language: str
+    text_preview: str
+    english_translation: str
+    vocabulary_count: int
+    created_at: datetime
+
+
+class ReviewVocabularyOccurrence(BaseModel):
+    analysis_id: int
+    sentence_text: str
+    created_at: datetime
+
+
+class ReviewVocabularyEntry(BaseModel):
+    term: str
+    definition: str
+    level: Level
+    occurrences: list[ReviewVocabularyOccurrence]

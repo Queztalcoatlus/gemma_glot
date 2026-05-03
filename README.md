@@ -13,6 +13,8 @@ Open http://127.0.0.1:8000.
 
 Without a Google API key, the Google provider returns deterministic mock analysis so the UI and request flow are usable during development.
 
+The app now requires a local account. Register from the first screen, then analyze text/audio and review saved history from the Review tab.
+
 ## Test
 
 ```bash
@@ -29,9 +31,19 @@ PROVIDER=google
 MODEL=gemma-4-31b-it
 VLLM_BASE_URL=http://localhost:8001/v1
 VLLM_API_KEY=
+DATABASE_URL=mysql+pymysql://gemma_glot:your_password_here@localhost:3306/gemma_glot
 ```
 
 Shell environment variables still work and take priority over `.env`.
+
+If `DATABASE_URL` is omitted, the app uses a local SQLite database at `.data/gemma_glot.db`. For MySQL, create a database/user first:
+
+```sql
+CREATE DATABASE gemma_glot;
+CREATE USER 'gemma_glot'@'localhost' IDENTIFIED BY 'your_password_here';
+GRANT ALL PRIVILEGES ON gemma_glot.* TO 'gemma_glot'@'localhost';
+FLUSH PRIVILEGES;
+```
 
 For vLLM-hosted text and audio analysis:
 
