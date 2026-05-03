@@ -1,7 +1,11 @@
 :root {
+  color-scheme: light;
   --paper: #f6f7f1;
   --surface: #ffffff;
   --surface-soft: #eef3e8;
+  --surface-alpha: rgba(255, 255, 255, 0.86);
+  --control-surface: #fbfcf8;
+  --pill-bg: rgba(255, 255, 255, 0.72);
   --ink: #17211b;
   --muted: #5e6a61;
   --line: #d8dfd2;
@@ -11,7 +15,55 @@
   --gold: #e7b935;
   --teal: #227a73;
   --danger: #9b241e;
+  --dropzone-line: #9eaa9d;
+  --focus-ring: rgba(231, 185, 53, 0.42);
+  --primary-text: #ffffff;
+  --record-bg: #fff8f7;
+  --record-border: rgba(201, 76, 67, 0.35);
+  --error-bg: #fff8f7;
+  --error-border: rgba(155, 36, 30, 0.28);
+  --level-bg: rgba(231, 185, 53, 0.28);
+  --level-ink: #6b4f00;
+  --body-green-wash: rgba(33, 107, 77, 0.08);
+  --body-coral-wash: rgba(201, 76, 67, 0.08);
+  --brand-shadow: rgba(23, 33, 27, 0.08);
+  --tab-shadow: rgba(23, 33, 27, 0.08);
   --shadow: 0 20px 60px rgba(23, 33, 27, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #111714;
+    --surface: #1b241f;
+    --surface-soft: #233229;
+    --surface-alpha: rgba(27, 36, 31, 0.9);
+    --control-surface: #151d19;
+    --pill-bg: rgba(27, 36, 31, 0.78);
+    --ink: #eef4ed;
+    --muted: #a8b6ad;
+    --line: #3a473f;
+    --green: #65c99e;
+    --green-deep: #95dfbd;
+    --coral: #ff9184;
+    --gold: #f0c856;
+    --teal: #6ec9c2;
+    --danger: #ffaaa2;
+    --dropzone-line: #68786d;
+    --focus-ring: rgba(240, 200, 86, 0.48);
+    --primary-text: #0e1511;
+    --record-bg: rgba(255, 145, 132, 0.12);
+    --record-border: rgba(255, 145, 132, 0.38);
+    --error-bg: rgba(255, 145, 132, 0.12);
+    --error-border: rgba(255, 145, 132, 0.35);
+    --level-bg: rgba(240, 200, 86, 0.18);
+    --level-ink: #f8df8b;
+    --body-green-wash: rgba(101, 201, 158, 0.1);
+    --body-coral-wash: rgba(255, 145, 132, 0.08);
+    --brand-shadow: rgba(0, 0, 0, 0.24);
+    --tab-shadow: rgba(0, 0, 0, 0.22);
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+  }
 }
 
 * {
@@ -22,8 +74,8 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(33, 107, 77, 0.08), transparent 32%),
-    linear-gradient(315deg, rgba(201, 76, 67, 0.08), transparent 28%),
+    linear-gradient(135deg, var(--body-green-wash), transparent 32%),
+    linear-gradient(315deg, var(--body-coral-wash), transparent 28%),
     var(--paper);
   color: var(--ink);
   font-family: "Avenir Next", "Segoe UI", sans-serif;
@@ -87,7 +139,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 8px 24px rgba(23, 33, 27, 0.08);
+  box-shadow: 0 8px 24px var(--brand-shadow);
   color: var(--green);
   font-family: Georgia, serif;
   font-size: 21px;
@@ -113,7 +165,7 @@ h1,
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--pill-bg);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -135,7 +187,7 @@ h1,
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--surface-alpha);
   box-shadow: var(--shadow);
 }
 
@@ -198,7 +250,7 @@ h1,
   border-color: var(--line);
   background: var(--surface);
   color: var(--green-deep);
-  box-shadow: 0 8px 18px rgba(23, 33, 27, 0.08);
+  box-shadow: 0 8px 18px var(--tab-shadow);
 }
 
 .input-body,
@@ -212,7 +264,7 @@ textarea {
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfcf8;
+  background: var(--control-surface);
   color: var(--ink);
   padding: 16px;
   line-height: 1.55;
@@ -222,7 +274,7 @@ textarea:focus,
 input:focus,
 select:focus,
 button:focus-visible {
-  outline: 3px solid rgba(231, 185, 53, 0.42);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -235,9 +287,9 @@ button:focus-visible {
   display: grid;
   place-items: center;
   min-height: 176px;
-  border: 1px dashed #9eaa9d;
+  border: 1px dashed var(--dropzone-line);
   border-radius: 8px;
-  background: #fbfcf8;
+  background: var(--control-surface);
   text-align: center;
   padding: 20px;
 }
@@ -321,18 +373,18 @@ button:focus-visible {
 .primary-action {
   border-color: var(--green-deep);
   background: var(--green);
-  color: #fff;
+  color: var(--primary-text);
 }
 
 .record-action {
-  border-color: rgba(201, 76, 67, 0.35);
-  background: #fff8f7;
+  border-color: var(--record-border);
+  background: var(--record-bg);
   color: var(--coral);
 }
 
 .record-action.recording {
   background: var(--coral);
-  color: #fff;
+  color: var(--primary-text);
 }
 
 .result-header {
@@ -358,9 +410,9 @@ button:focus-visible {
 .error {
   margin: 14px 0 0;
   padding: 12px;
-  border: 1px solid rgba(155, 36, 30, 0.28);
+  border: 1px solid var(--error-border);
   border-radius: 8px;
-  background: #fff8f7;
+  background: var(--error-bg);
   color: var(--danger);
 }
 
@@ -426,7 +478,7 @@ button:focus-visible {
 .vocab-card {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfcf8;
+  background: var(--control-surface);
 }
 
 .analysis-item {
@@ -467,8 +519,8 @@ button:focus-visible {
   min-height: 24px;
   margin-bottom: 8px;
   border-radius: 999px;
-  background: rgba(231, 185, 53, 0.28);
-  color: #6b4f00;
+  background: var(--level-bg);
+  color: var(--level-ink);
   padding: 0 8px;
   font-size: 13px;
   font-weight: 900;
