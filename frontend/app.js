@@ -10,6 +10,10 @@ function formatTime(value) {
   return `00:${String(value).padStart(2, "0")}`;
 }
 
+function vocabularyKey(item) {
+  return `${(item.lemma || item.term).toLowerCase()}::${item.term.toLowerCase()}`;
+}
+
 async function apiRequest(path, options = {}, token = "") {
   const headers = new Headers(options.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -148,6 +152,7 @@ function AnalyzeView({ token, onAuthExpired }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [result, setResult] = useState(null);
+  const [savedWords, setSavedWords] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const mediaRecorderRef = useRef(null);
@@ -200,6 +205,7 @@ function AnalyzeView({ token, onAuthExpired }) {
   function clearInput() {
     setError("");
     setResult(null);
+    setSavedWords(new Set());
     if (mode === "text") {
       setText("");
     } else {
@@ -226,6 +232,7 @@ function AnalyzeView({ token, onAuthExpired }) {
           token
         );
         setResult(analysis);
+        setSavedWords(new Set());
       } else {
         const audio = file || recordedBlob;
         if (!audio) throw new Error("Upload or record audio before analyzing.");
@@ -234,12 +241,42 @@ function AnalyzeView({ token, onAuthExpired }) {
         formData.append("file", audio, file ? file.name : "recording.webm");
         const analysis = await apiRequest("/api/analyze/audio", { method: "POST", body: formData }, token);
         setResult(analysis);
+        setSavedWords(new Set());
       }
     } catch (err) {
       if (err.status === 401) onAuthExpired(err.message);
       else setError(err.message || "Analysis failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveWord(item) {
+    if (!result?.analysis_id) {
+      setError("Analyze this text before saving vocabulary.");
+      return;
+    }
+    setError("");
+    try {
+      await apiRequest(
+        "/api/review/vocabulary",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            analysis_id: result.analysis_id,
+            term: item.term,
+            lemma: item.lemma || item.term,
+            definition: item.definition,
+            level: item.level,
+          }),
+        },
+        token
+      );
+      setSavedWords((current) => new Set([...current, vocabularyKey(item)]));
+    } catch (err) {
+      if (err.status === 401) onAuthExpired(err.message);
+      else setError(err.message || "Could not save vocabulary.");
     }
   }
 
@@ -274,7 +311,7 @@ function AnalyzeView({ token, onAuthExpired }) {
         setRecordedBlob,
         setSeconds,
       }),
-      h(ResultPanel, { result, loading })
+      h(ResultPanel, { result, loading, onSaveWord: saveWord, savedWords })
     ),
     error ? h("p", { className: "error", role: "alert" }, error) : null
   );
@@ -388,14 +425,14 @@ function AudioPane({ setFile, selectedAudioLabel, recording, seconds, startRecor
   );
 }
 
-function ResultPanel({ result, loading }) {
+function ResultPanel({ result, loading, onSaveWord, savedWords }) {
   return h(
     "section",
     { className: "panel result-panel", "aria-label": "Analysis result" },
     h("div", { className: "result-header" }, h("div", null, h("h2", null, result ? "Analysis result" : "Ready"), h("p", null, result ? `${result.language} ${result.input_type} analysis` : "Submit text or audio to begin."))),
     loading ? h("p", { className: "loading-state" }, "GemmaGlot is analyzing...") : null,
     !loading && !result ? h("p", { className: "empty-state" }, "Structured transcription, translation, syntax, and vocabulary will appear here.") : null,
-    result ? h(ResultContent, { result }) : null
+    result ? h(ResultContent, { result, onSaveWord, savedWords }) : null
   );
 }
 
@@ -507,7 +544,8 @@ function VocabularyList({ vocabulary, openAnalysis }) {
           entry.occurrences.map((occurrence) =>
             h(
               "button",
-              { className: "occurrence-link", type: "button", key: `${entry.term}-${occurrence.analysis_id}`, onClick: () => openAnalysis(occurrence.analysis_id) },
+              { className: "occurrence-link", type: "button", key: `${entry.term}-${occurrence.analysis_id}-${occurrence.created_at}`, onClick: () => openAnalysis(occurrence.analysis_id) },
+              h("span", null, occurrence.surface_form),
               occurrence.sentence_text
             )
           )
@@ -517,7 +555,7 @@ function VocabularyList({ vocabulary, openAnalysis }) {
   );
 }
 
-function ResultContent({ result }) {
+function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
   const transcript = result.input_type === "audio" ? result.orthographic_transcript : result.source_text;
   return h(
     React.Fragment,
@@ -554,7 +592,25 @@ function ResultContent({ result }) {
         "div",
         { className: "vocab-grid" },
         result.vocabulary.map((item, index) =>
-          h("article", { className: "vocab-card", key: `${item.term}-${index}` }, h("strong", null, item.term), h("span", { className: "level" }, item.level), h("p", null, item.definition))
+          h(
+            "article",
+            { className: "vocab-card", key: `${item.term}-${index}` },
+            h("div", { className: "vocab-card-header" }, h("strong", null, item.term), h("span", { className: "level" }, item.level)),
+            h("span", { className: "base-form-label" }, item.lemma && item.lemma !== item.term ? `Base form: ${item.lemma}` : "Base form matches term"),
+            h("p", null, item.definition),
+            onSaveWord
+              ? h(
+                  "button",
+                  {
+                    className: "secondary-action compact-action save-word-action",
+                    type: "button",
+                    onClick: () => onSaveWord(item),
+                    disabled: savedWords.has(vocabularyKey(item)),
+                  },
+                  savedWords.has(vocabularyKey(item)) ? "Saved" : "Save"
+                )
+              : null
+          )
         )
       )
     ),

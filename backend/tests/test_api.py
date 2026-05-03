@@ -1,14 +1,20 @@
 import asyncio
+import os
+import tempfile
 import uuid
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
 
+TEST_DB_DIR = tempfile.TemporaryDirectory()
+os.environ["DATABASE_URL"] = f"sqlite:///{Path(TEST_DB_DIR.name) / 'test.db'}"
+
 from backend.app.db import SessionLocal, init_db
 from backend.app.inference import _vllm_audio_messages
 from backend.app.main import app
-from backend.app.models import AnalysisRecord, AuthToken, User, VocabularyOccurrence
+from backend.app.models import AnalysisRecord, AuthToken, User, VocabularySave, VocabularyTerm
 
 
 class GemmaGlotApiTests(unittest.TestCase):
@@ -27,7 +33,8 @@ class GemmaGlotApiTests(unittest.TestCase):
 
     def _clear_db(self) -> None:
         with SessionLocal() as db:
-            db.query(VocabularyOccurrence).delete()
+            db.query(VocabularySave).delete()
+            db.query(VocabularyTerm).delete()
             db.query(AnalysisRecord).delete()
             db.query(AuthToken).delete()
             db.query(User).delete()
@@ -115,12 +122,13 @@ class GemmaGlotApiTests(unittest.TestCase):
 
     def test_review_history_and_vocabulary_use_saved_analysis(self) -> None:
         headers = self.auth_headers()
-        self.request(
+        analysis_response = self.request(
             "POST",
             "/api/analyze/text",
             headers=headers,
             json={"language": "Spanish", "text": "Cuando era nino, sonaba con viajar."},
         )
+        analysis = analysis_response.json()
 
         history_response = self.request("GET", "/api/review/history", headers=headers)
         vocab_response = self.request("GET", "/api/review/vocabulary", headers=headers)
@@ -128,7 +136,26 @@ class GemmaGlotApiTests(unittest.TestCase):
         self.assertEqual(history_response.status_code, 200)
         self.assertEqual(vocab_response.status_code, 200)
         self.assertEqual(len(history_response.json()), 1)
-        self.assertTrue(vocab_response.json())
+        self.assertEqual(vocab_response.json(), [])
+
+        word = analysis["vocabulary"][0]
+        save_response = self.request(
+            "POST",
+            "/api/review/vocabulary",
+            headers=headers,
+            json={
+                "analysis_id": analysis["analysis_id"],
+                "term": word["term"],
+                "lemma": word["lemma"],
+                "definition": word["definition"],
+                "level": word["level"],
+            },
+        )
+        vocab_response = self.request("GET", "/api/review/vocabulary", headers=headers)
+
+        self.assertEqual(save_response.status_code, 200)
+        self.assertEqual(vocab_response.json()[0]["lemma"], word["lemma"])
+        self.assertEqual(vocab_response.json()[0]["occurrences"][0]["surface_form"], word["term"])
 
     def test_vllm_audio_builds_multimodal_chat_request(self) -> None:
         messages = _vllm_audio_messages(b"fake-audio", "recording.webm", "audio/webm", "Spanish")

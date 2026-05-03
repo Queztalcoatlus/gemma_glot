@@ -22,10 +22,10 @@ Return only valid JSON matching this schema:
   "source_text": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
+  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
-Prioritize useful syntax patterns and learner-worthy vocabulary. Be concise.
+Prioritize useful syntax patterns and learner-worthy vocabulary. For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate. Be concise.
 """
 
 
@@ -39,10 +39,11 @@ Return only valid JSON matching this schema:
   "ipa_transcript": "string",
   "english_translation": "string",
   "syntax_analysis": [{"feature": "string", "explanation": "string"}],
-  "vocabulary": [{"term": "string", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
+  "vocabulary": [{"term": "surface form from input", "lemma": "dictionary form", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
   "notes": ["string"]
 }
 Use readable IPA with helpful major allophones when confidence is high.
+For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate.
 """
 
 
@@ -259,16 +260,19 @@ def _mock_text_response(source_text: str) -> TextAnalysisResponse:
         vocabulary=[
             {
                 "term": "sonaba",
+                "lemma": "sonar",
                 "definition": 'Imperfect form of "sonar", used for dreams or recurring hopes.',
                 "level": "A2",
             },
             {
                 "term": "imagine",
+                "lemma": "imaginar",
                 "definition": 'Preterite form of "imaginar", meaning "I imagined."',
                 "level": "B1",
             },
             {
                 "term": "forma de ver",
+                "lemma": "forma de ver",
                 "definition": "Expression meaning a way of seeing, understanding, or interpreting something.",
                 "level": "B1",
             },
@@ -296,12 +300,14 @@ def _mock_audio_response(filename: str) -> AudioAnalysisResponse:
         vocabulary=[
             {
                 "term": "sonaba",
+                "lemma": "sonar",
                 "definition": 'Imperfect form of "sonar", used for recurring or background dreams.',
                 "level": "A2",
             },
-            {"term": "viajar", "definition": "To travel; a high-frequency infinitive.", "level": "A1"},
+            {"term": "viajar", "lemma": "viajar", "definition": "To travel; a high-frequency infinitive.", "level": "A1"},
             {
                 "term": "America Latina",
+                "lemma": "America Latina",
                 "definition": "Latin America; useful regional/geographic phrase.",
                 "level": "A2",
             },

@@ -134,6 +134,10 @@ button:disabled {
   display: flex;
 }
 
+.vocab-card-header {
+  display: flex;
+}
+
 .topbar {
   align-items: center;
   justify-content: space-between;
@@ -583,13 +587,26 @@ button:focus-visible {
 }
 
 .vocab-card {
+  display: grid;
+  gap: 8px;
   min-height: 116px;
   padding: 12px;
 }
 
 .vocab-card strong {
   display: block;
-  margin-bottom: 6px;
+}
+
+.vocab-card-header {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.base-form-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .level {
@@ -607,6 +624,10 @@ button:focus-visible {
 
 .vocab-card p {
   margin: 0;
+}
+
+.save-word-action {
+  justify-self: start;
 }
 
 .notes {
@@ -682,12 +703,19 @@ button:focus-visible {
 }
 
 .occurrence-link {
+  display: grid;
+  gap: 4px;
   border: 0;
   border-left: 3px solid var(--teal);
   border-radius: 0;
   background: var(--surface-soft);
   padding: 10px;
   text-align: left;
+}
+
+.occurrence-link span {
+  color: var(--green-deep);
+  font-weight: 900;
 }
 
 @media (max-width: 920px) {

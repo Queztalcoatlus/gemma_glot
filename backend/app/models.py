@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.db import Base
@@ -51,14 +51,36 @@ class AnalysisRecord(Base):
     user: Mapped[User] = relationship(back_populates="analyses")
 
 
-class VocabularyOccurrence(Base):
-    __tablename__ = "vocabulary_occurrences"
+class VocabularyTerm(Base):
+    __tablename__ = "vocabulary_terms"
+    __table_args__ = (UniqueConstraint("user_id", "language", "lemma", name="uq_vocabulary_term_user_language_lemma"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    language: Mapped[str] = mapped_column(String(40), nullable=False)
+    lemma: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    display_term: Mapped[str] = mapped_column(String(255), nullable=False)
+    definition: Mapped[str] = mapped_column(Text, nullable=False)
+    level: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True, nullable=False)
+
+
+class VocabularySave(Base):
+    __tablename__ = "vocabulary_saves"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "analysis_id",
+            "vocabulary_term_id",
+            "surface_form",
+            name="uq_vocabulary_save_user_analysis_term_surface",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     analysis_id: Mapped[int] = mapped_column(ForeignKey("analysis_records.id"), index=True, nullable=False)
-    term: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    definition: Mapped[str] = mapped_column(Text, nullable=False)
-    level: Mapped[str] = mapped_column(String(8), nullable=False)
+    vocabulary_term_id: Mapped[int] = mapped_column(ForeignKey("vocabulary_terms.id"), index=True, nullable=False)
+    surface_form: Mapped[str] = mapped_column(String(255), nullable=False)
     sentence_text: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True, nullable=False)

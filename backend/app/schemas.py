@@ -15,11 +15,13 @@ class SyntaxFeature(BaseModel):
 
 class VocabularyItem(BaseModel):
     term: str = Field(min_length=1)
+    lemma: str | None = Field(default=None, min_length=1)
     definition: str = Field(min_length=1)
     level: Level
 
 
 class AnalysisBase(BaseModel):
+    analysis_id: int | None = None
     language: LanguageCode
     english_translation: str
     syntax_analysis: list[SyntaxFeature]
@@ -67,12 +69,22 @@ class ReviewHistoryItem(BaseModel):
 
 class ReviewVocabularyOccurrence(BaseModel):
     analysis_id: int
+    surface_form: str
     sentence_text: str
     created_at: datetime
 
 
 class ReviewVocabularyEntry(BaseModel):
     term: str
+    lemma: str
     definition: str
     level: Level
     occurrences: list[ReviewVocabularyOccurrence]
+
+
+class SaveVocabularyRequest(BaseModel):
+    analysis_id: int
+    term: str = Field(min_length=1)
+    lemma: str | None = Field(default=None, min_length=1)
+    definition: str = Field(min_length=1)
+    level: Level

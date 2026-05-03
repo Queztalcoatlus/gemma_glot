@@ -12,8 +12,8 @@ from backend.app.auth import current_user, hash_password, issue_token, verify_pa
 from backend.app.db import get_db, init_db
 from backend.app.inference import InferenceError, analyze_audio, analyze_text
 from backend.app.models import User
-from backend.app.schemas import AuthRequest, AuthResponse, UserResponse
-from backend.app.storage import get_analysis, list_history, list_vocabulary, save_analysis
+from backend.app.schemas import AuthRequest, AuthResponse, SaveVocabularyRequest, UserResponse
+from backend.app.storage import get_analysis, list_history, list_vocabulary, save_analysis, save_vocabulary_selection
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -140,3 +140,11 @@ async def review_analysis(analysis_id: int, user: User = Depends(current_user), 
 @app.get("/api/review/vocabulary")
 async def review_vocabulary(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return list_vocabulary(db, user)
+
+
+@app.post("/api/review/vocabulary")
+async def save_vocabulary(request: SaveVocabularyRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    entry = save_vocabulary_selection(db, user, request)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    return entry
