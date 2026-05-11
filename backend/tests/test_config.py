@@ -4,7 +4,18 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.app.config import get_model_name, get_provider, get_vllm_api_key, get_vllm_base_url, load_env
+from backend.app.config import (
+    get_google_cloud_location,
+    get_google_cloud_project,
+    get_model_name,
+    get_provider,
+    get_speech_language_code,
+    get_speech_model,
+    get_vllm_api_key,
+    get_vllm_base_url,
+    get_vllm_timeout_seconds,
+    load_env,
+)
 
 
 class ConfigTests(unittest.TestCase):
@@ -66,6 +77,26 @@ class ConfigTests(unittest.TestCase):
     def test_vllm_api_key_is_optional(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             self.assertIsNone(get_vllm_api_key())
+
+    def test_vllm_timeout_defaults_to_cloud_run_friendly_value(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(get_vllm_timeout_seconds(), 300)
+
+    def test_vllm_timeout_accepts_positive_integer(self) -> None:
+        with patch.dict(os.environ, {"VLLM_TIMEOUT_SECONDS": "600"}, clear=True):
+            self.assertEqual(get_vllm_timeout_seconds(), 600)
+
+    def test_vllm_timeout_rejects_invalid_value(self) -> None:
+        with patch.dict(os.environ, {"VLLM_TIMEOUT_SECONDS": "slow"}, clear=True):
+            with self.assertRaisesRegex(ValueError, "VLLM_TIMEOUT_SECONDS must be an integer"):
+                get_vllm_timeout_seconds()
+
+    def test_google_speech_defaults(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(get_google_cloud_project())
+            self.assertEqual(get_google_cloud_location(), "us")
+            self.assertEqual(get_speech_language_code(), "es-US")
+            self.assertEqual(get_speech_model(), "chirp_3")
 
 
 if __name__ == "__main__":

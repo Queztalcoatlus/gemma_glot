@@ -12,7 +12,7 @@ TEST_DB_DIR = tempfile.TemporaryDirectory()
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(TEST_DB_DIR.name) / 'test.db'}"
 
 from backend.app.db import SessionLocal, init_db
-from backend.app.inference import _vllm_audio_messages
+from backend.app.inference import _speech_api_endpoint, _transcribe_with_google_speech_sync, _vllm_audio_messages, analyze_audio
 from backend.app.main import app
 from backend.app.models import AnalysisRecord, AuthToken, User, VocabularySave, VocabularyTerm
 
@@ -168,6 +168,58 @@ class GemmaGlotApiTests(unittest.TestCase):
         self.assertEqual(content[1]["type"], "input_audio")
         self.assertEqual(content[1]["input_audio"]["format"], "webm")
         self.assertTrue(content[1]["input_audio"]["data"])
+
+    def test_google_speech_requires_project(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(Exception, "GOOGLE_CLOUD_PROJECT"):
+                _transcribe_with_google_speech_sync(b"fake-audio")
+
+    def test_speech_api_endpoint_uses_regional_endpoint_for_us_and_eu(self) -> None:
+        self.assertEqual(_speech_api_endpoint("us"), "us-speech.googleapis.com")
+        self.assertEqual(_speech_api_endpoint("eu"), "eu-speech.googleapis.com")
+        self.assertIsNone(_speech_api_endpoint("global"))
+
+    def test_google_audio_fallback_uses_asr_transcript(self) -> None:
+        class FakeModels:
+            @staticmethod
+            def generate_content(model, contents):
+                class Response:
+                    text = """
+                    {
+                      "input_type": "audio",
+                      "language": "Spanish",
+                      "orthographic_transcript": "ignored",
+                      "ipa_transcript": "ˈola ˈmundo",
+                      "english_translation": "Hello, world.",
+                      "syntax_analysis": [{"feature": "Greeting", "explanation": "Uses hola as a greeting."}],
+                      "vocabulary": [{"term": "Hola", "lemma": "hola", "part_of_speech": "interj.", "gender": "n/a", "definition": "hello", "level": "A1"}],
+                      "notes": []
+                    }
+                    """
+
+                return Response()
+
+        class FakeClient:
+            models = FakeModels()
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "PROVIDER": "google",
+                    "GOOGLE_API_KEY": "test-key",
+                    "MODEL": "gemma-test",
+                },
+                clear=True,
+            ),
+            patch("backend.app.inference._google_client", return_value=FakeClient()),
+            patch("backend.app.inference._transcribe_with_google_speech", return_value="Hola, mundo."),
+        ):
+            analysis = asyncio.run(analyze_audio(b"fake-audio", "recording.webm", "audio/webm", "Spanish"))
+
+        self.assertEqual(analysis.orthographic_transcript, "Hola, mundo.")
+        self.assertEqual(analysis.ipa_transcript, "ˈola ˈmundo")
+        self.assertEqual(analysis.notes, [])
 
 
 if __name__ == "__main__":

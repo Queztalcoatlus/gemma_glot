@@ -5,7 +5,19 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from backend.app.config import get_api_key, get_model_name, get_provider, get_vllm_api_key, get_vllm_base_url, load_env
+from backend.app.config import (
+    get_api_key,
+    get_google_cloud_location,
+    get_google_cloud_project,
+    get_model_name,
+    get_provider,
+    get_speech_language_code,
+    get_speech_model,
+    get_vllm_api_key,
+    get_vllm_base_url,
+    get_vllm_timeout_seconds,
+    load_env,
+)
 from backend.app.schemas import AudioAnalysisResponse, TextAnalysisResponse
 
 
@@ -50,6 +62,25 @@ For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the si
 """
 
 
+ASR_AUDIO_ANALYSIS_PROMPT = """
+You are GemmaGlot, a concise Spanish language-learning analyst.
+The audio has already been transcribed by an automatic speech recognizer. You do not have access to the original audio signal.
+Return only valid JSON matching this schema:
+{
+  "input_type": "audio",
+  "language": "Spanish",
+  "orthographic_transcript": "string",
+  "ipa_transcript": "string",
+  "english_translation": "string",
+  "syntax_analysis": [{"feature": "string", "explanation": "string"}],
+  "vocabulary": [{"term": "surface form from transcript", "lemma": "dictionary form", "part_of_speech": "n.|v.|adj.|adv.|pron.|prep.|conj.|interj.|expr.|other", "gender": "m.|f.|m./f.|n/a", "definition": "string", "level": "A1|A2|B1|B2|C1|C2|N/A"}],
+  "notes": ["string"]
+}
+Use the ASR transcript as orthographic_transcript. Generate ipa_transcript from the orthographic transcript using a conservative broad Spanish pronunciation. Do not claim to preserve speaker-specific dialect features from the audio signal. Do not add notes about Google Cloud Speech-to-Text or ASR processing; the application will add that note.
+For Spanish verbs, use the infinitive as lemma; for nouns/adjectives, use the singular masculine lemma when appropriate. Include part_of_speech for every vocabulary item. Use gender only for nouns and noun-like entries; use "n/a" otherwise. Be concise.
+"""
+
+
 class InferenceError(RuntimeError):
     """Raised when the configured model provider cannot produce an analysis."""
 
@@ -77,6 +108,25 @@ def _google_client():
     except ImportError as exc:
         raise InferenceError("google-genai is not installed.") from exc
     return genai.Client(api_key=api_key)
+
+
+def _google_speech_client():
+    try:
+        from google.api_core.client_options import ClientOptions
+        from google.cloud.speech_v2 import SpeechClient
+    except ImportError as exc:
+        raise InferenceError("google-cloud-speech is not installed.") from exc
+
+    endpoint = _speech_api_endpoint(get_google_cloud_location())
+    if endpoint is None:
+        return SpeechClient()
+    return SpeechClient(client_options=ClientOptions(api_endpoint=endpoint))
+
+
+def _speech_api_endpoint(location: str) -> str | None:
+    if location in {"us", "eu"}:
+        return f"{location}-speech.googleapis.com"
+    return None
 
 
 async def _vllm_chat(messages: list[dict[str, Any]]) -> str:
@@ -110,8 +160,51 @@ async def _vllm_chat(messages: list[dict[str, Any]]) -> str:
         ) from exc
 
 
+async def _transcribe_with_google_speech(audio_bytes: bytes, language: str) -> str:
+    if language != SUPPORTED_LANGUAGE:
+        raise InferenceError(f"{language} is not supported yet.")
+    return await asyncio.to_thread(_transcribe_with_google_speech_sync, audio_bytes)
+
+
+def _transcribe_with_google_speech_sync(audio_bytes: bytes) -> str:
+    project_id = get_google_cloud_project()
+    if not project_id:
+        raise InferenceError("Set GOOGLE_CLOUD_PROJECT to use Google Cloud Speech-to-Text.")
+
+    try:
+        from google.cloud.speech_v2.types import cloud_speech
+    except ImportError as exc:
+        raise InferenceError("google-cloud-speech is not installed.") from exc
+
+    client = _google_speech_client()
+    request = cloud_speech.RecognizeRequest(
+        recognizer=f"projects/{project_id}/locations/{get_google_cloud_location()}/recognizers/_",
+        config=cloud_speech.RecognitionConfig(
+            auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
+            language_codes=[get_speech_language_code()],
+            model=get_speech_model(),
+        ),
+        content=audio_bytes,
+    )
+
+    try:
+        response = client.recognize(request=request)
+    except Exception as exc:
+        raise InferenceError(f"Google Cloud Speech-to-Text failed: {exc}") from exc
+
+    transcripts = [
+        result.alternatives[0].transcript.strip()
+        for result in response.results
+        if result.alternatives and result.alternatives[0].transcript.strip()
+    ]
+    transcript = " ".join(transcripts).strip()
+    if not transcript:
+        raise InferenceError("Google Cloud Speech-to-Text did not return a transcript.")
+    return transcript
+
+
 def _send_vllm_request(request: urllib.request.Request) -> str:
-    with urllib.request.urlopen(request, timeout=120) as response:
+    with urllib.request.urlopen(request, timeout=get_vllm_timeout_seconds()) as response:
         payload = json.loads(response.read().decode("utf-8"))
 
     try:
@@ -219,22 +312,20 @@ async def analyze_audio(
     if client is None:
         return _mock_audio_response(filename)
 
+    transcript = await _transcribe_with_google_speech(audio_bytes, language)
+    prompt = f"{ASR_AUDIO_ANALYSIS_PROMPT}\n\nTarget language: {language}\nASR transcript:\n{transcript}"
     try:
-        from google.genai import types
-
-        audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=content_type)
-        response = client.models.generate_content(
-            model=get_model_name(),
-            contents=[
-                AUDIO_SYSTEM_PROMPT,
-                f"Target language: {language}. Analyze this audio file: {filename}",
-                audio_part,
-            ],
-        )
+        response = client.models.generate_content(model=get_model_name(), contents=prompt)
         payload = _extract_json(response.text or "")
-        return AudioAnalysisResponse.model_validate(payload)
+        analysis = AudioAnalysisResponse.model_validate(payload)
     except Exception as exc:
         raise InferenceError(str(exc)) from exc
+
+    return analysis.model_copy(
+        update={
+            "orthographic_transcript": transcript,
+        }
+    )
 
 
 def _mock_text_response(source_text: str) -> TextAnalysisResponse:

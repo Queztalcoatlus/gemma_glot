@@ -8,6 +8,10 @@ ENV_PATHS = (ROOT / ".env", ROOT / "backend" / ".env")
 DEFAULT_MODEL = "gemma-4-26b-a4b-it"
 DEFAULT_PROVIDER = "google"
 DEFAULT_VLLM_BASE_URL = "http://localhost:8001/v1"
+DEFAULT_VLLM_TIMEOUT_SECONDS = 300
+DEFAULT_GOOGLE_CLOUD_LOCATION = "us"
+DEFAULT_SPEECH_LANGUAGE_CODE = "es-US"
+DEFAULT_SPEECH_MODEL = "chirp_3"
 
 
 def load_env(paths: Iterable[Path] = ENV_PATHS) -> None:
@@ -47,6 +51,42 @@ def get_vllm_base_url() -> str:
 
 def get_vllm_api_key() -> str | None:
     return os.getenv("VLLM_API_KEY") or None
+
+
+def get_vllm_timeout_seconds() -> int:
+    raw_value = os.getenv("VLLM_TIMEOUT_SECONDS", str(DEFAULT_VLLM_TIMEOUT_SECONDS)).strip()
+    try:
+        timeout = int(raw_value)
+    except ValueError as exc:
+        raise ValueError("VLLM_TIMEOUT_SECONDS must be an integer.") from exc
+    if timeout <= 0:
+        raise ValueError("VLLM_TIMEOUT_SECONDS must be greater than zero.")
+    return timeout
+
+
+def get_google_cloud_project() -> str | None:
+    return os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT") or None
+
+
+def get_google_cloud_location() -> str:
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", DEFAULT_GOOGLE_CLOUD_LOCATION).strip()
+    if not location:
+        raise ValueError("GOOGLE_CLOUD_LOCATION must not be empty.")
+    return location
+
+
+def get_speech_language_code() -> str:
+    language_code = os.getenv("SPEECH_LANGUAGE_CODE", DEFAULT_SPEECH_LANGUAGE_CODE).strip()
+    if not language_code:
+        raise ValueError("SPEECH_LANGUAGE_CODE must not be empty.")
+    return language_code
+
+
+def get_speech_model() -> str:
+    model = os.getenv("SPEECH_MODEL", DEFAULT_SPEECH_MODEL).strip()
+    if not model:
+        raise ValueError("SPEECH_MODEL must not be empty.")
+    return model
 
 
 def _parse_env_line(line: str) -> tuple[str, str] | None:

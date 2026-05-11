@@ -583,7 +583,7 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
         "div",
         { className: "transcript" },
         h("p", { className: "quote" }, h("span", { className: "quote-label" }, "Text"), transcript),
-        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, "Heard IPA"), result.ipa_transcript) : null
+        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, ipaLabel(result)), result.ipa_transcript) : null
       )
     ),
     h("section", { className: "result-section" }, h("h3", { className: "section-label" }, "Translation"), h("p", { className: "quote translation" }, result.english_translation)),
@@ -633,6 +633,11 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
       ? h("section", { className: "result-section" }, h("h3", { className: "section-label" }, "Notes"), h("ul", { className: "notes" }, result.notes.map((note, index) => h("li", { key: index }, note))))
       : null
   );
+}
+
+function ipaLabel(result) {
+  const notes = (result.notes || []).join(" ").toLowerCase();
+  return notes.includes("ipa was inferred from text") ? "IPA from text" : "IPA from audio";
 }
 
 function VocabMeta({ item }) {
