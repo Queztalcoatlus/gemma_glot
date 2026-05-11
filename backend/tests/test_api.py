@@ -15,6 +15,8 @@ from backend.app.db import SessionLocal, init_db
 from backend.app.inference import _speech_api_endpoint, _transcribe_with_google_speech_sync, _vllm_audio_messages, analyze_audio
 from backend.app.main import app
 from backend.app.models import AnalysisRecord, AuthToken, User, VocabularySave, VocabularyTerm
+from backend.app.schemas import TextAnalysisResponse
+from backend.app.storage import analysis_response
 
 
 class GemmaGlotApiTests(unittest.TestCase):
@@ -82,6 +84,24 @@ class GemmaGlotApiTests(unittest.TestCase):
         self.assertEqual(payload["language"], "Spanish")
         self.assertTrue(payload["syntax_analysis"])
         self.assertTrue(payload["vocabulary"])
+
+    def test_analysis_schema_can_rehydrate_non_spanish_language(self) -> None:
+        response = analysis_response(
+            AnalysisRecord(
+                id=123,
+                user_id=1,
+                input_type="text",
+                language="French",
+                source_text="Bonjour.",
+                english_translation="Hello.",
+                syntax_json='[{"feature": "Greeting", "explanation": "A simple greeting."}]',
+                vocabulary_json='[{"term": "Bonjour", "lemma": "bonjour", "part_of_speech": "interj.", "gender": "n/a", "definition": "hello", "level": "A1"}]',
+                notes_json="[]",
+            )
+        )
+
+        self.assertIsInstance(response, TextAnalysisResponse)
+        self.assertEqual(response.language, "French")
 
     def test_audio_analysis_accepts_browser_recording(self) -> None:
         headers = self.auth_headers()

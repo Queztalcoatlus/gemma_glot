@@ -4,7 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-LanguageCode = Literal["Spanish"]
 Level = Literal["A1", "A2", "B1", "B2", "C1", "C2", "N/A"]
 PartOfSpeech = Literal["n.", "v.", "adj.", "adv.", "pron.", "prep.", "conj.", "interj.", "expr.", "other"]
 Gender = Literal["m.", "f.", "m./f.", "n/a"]
@@ -26,7 +25,7 @@ class VocabularyItem(BaseModel):
 
 class AnalysisBase(BaseModel):
     analysis_id: int | None = None
-    language: LanguageCode
+    language: str = Field(min_length=1, max_length=40)
     english_translation: str
     syntax_analysis: list[SyntaxFeature]
     vocabulary: list[VocabularyItem]

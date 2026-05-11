@@ -23,6 +23,7 @@ from backend.app.schemas import AudioAnalysisResponse, TextAnalysisResponse
 
 load_env()
 SUPPORTED_LANGUAGE = "Spanish"
+SUPPORTED_LANGUAGES = frozenset({SUPPORTED_LANGUAGE})
 
 
 TEXT_SYSTEM_PROMPT = """
@@ -161,8 +162,7 @@ async def _vllm_chat(messages: list[dict[str, Any]]) -> str:
 
 
 async def _transcribe_with_google_speech(audio_bytes: bytes, language: str) -> str:
-    if language != SUPPORTED_LANGUAGE:
-        raise InferenceError(f"{language} is not supported yet.")
+    _ensure_supported_language(language)
     return await asyncio.to_thread(_transcribe_with_google_speech_sync, audio_bytes)
 
 
@@ -266,8 +266,7 @@ def _audio_format(filename: str, content_type: str) -> str:
 
 
 async def analyze_text(source_text: str, language: str) -> TextAnalysisResponse:
-    if language != SUPPORTED_LANGUAGE:
-        raise InferenceError(f"{language} is not supported yet.")
+    _ensure_supported_language(language)
 
     provider = get_provider()
     if provider == "vllm":
@@ -297,8 +296,7 @@ async def analyze_audio(
     content_type: str,
     language: str,
 ) -> AudioAnalysisResponse:
-    if language != SUPPORTED_LANGUAGE:
-        raise InferenceError(f"{language} is not supported yet.")
+    _ensure_supported_language(language)
 
     provider = get_provider()
     if provider == "vllm":
@@ -326,6 +324,11 @@ async def analyze_audio(
             "orthographic_transcript": transcript,
         }
     )
+
+
+def _ensure_supported_language(language: str) -> None:
+    if language not in SUPPORTED_LANGUAGES:
+        raise InferenceError(f"{language} is not supported yet.")
 
 
 def _mock_text_response(source_text: str) -> TextAnalysisResponse:
