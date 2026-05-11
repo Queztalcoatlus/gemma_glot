@@ -1,3 +1,4 @@
+import secrets
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
@@ -73,6 +74,22 @@ async def login(request: AuthRequest, db: Session = Depends(get_db)) -> AuthResp
     if user is None or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
     return AuthResponse(token=issue_token(db, user), username=user.username)
+
+
+@app.post("/api/auth/demo", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def demo_login(db: Session = Depends(get_db)) -> AuthResponse:
+    for _ in range(5):
+        username = f"demo_{secrets.token_urlsafe(8).replace('-', '_')}"
+        user = User(username=username, password_hash=hash_password(secrets.token_urlsafe(32)))
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            continue
+        db.refresh(user)
+        return AuthResponse(token=issue_token(db, user), username="Demo")
+    raise HTTPException(status_code=503, detail="Could not create a demo session. Please retry.")
 
 
 @app.get("/api/auth/me", response_model=UserResponse)

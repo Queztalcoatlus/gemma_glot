@@ -102,6 +102,7 @@ function AuthPanel({ onAuth, initialError }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState(initialError || "");
 
   async function submit(event) {
@@ -122,6 +123,19 @@ function AuthPanel({ onAuth, initialError }) {
     }
   }
 
+  async function startDemo() {
+    setDemoLoading(true);
+    setError("");
+    try {
+      const auth = await apiRequest("/api/auth/demo", { method: "POST" });
+      onAuth(auth);
+    } catch (err) {
+      setError(err.message || "Could not start demo.");
+    } finally {
+      setDemoLoading(false);
+    }
+  }
+
   return h(
     "section",
     { className: "panel auth-panel", "aria-label": "Authentication" },
@@ -138,7 +152,8 @@ function AuthPanel({ onAuth, initialError }) {
       h("label", null, "Username", h("input", { value: username, minLength: 3, maxLength: 80, required: true, autoComplete: "username", onChange: (event) => setUsername(event.target.value) })),
       h("label", null, "Password", h("input", { value: password, minLength: 8, maxLength: 128, required: true, type: "password", autoComplete: mode === "login" ? "current-password" : "new-password", onChange: (event) => setPassword(event.target.value) })),
       error ? h("p", { className: "error", role: "alert" }, error) : null,
-      h("button", { className: "primary-action", type: "submit", disabled: loading }, loading ? "Working..." : mode === "login" ? "Sign in" : "Create account")
+      h("button", { className: "primary-action", type: "submit", disabled: loading || demoLoading }, loading ? "Working..." : mode === "login" ? "Sign in" : "Create account"),
+      h("button", { className: "secondary-action", type: "button", onClick: startDemo, disabled: loading || demoLoading }, demoLoading ? "Starting..." : "Continue as demo")
     )
   );
 }

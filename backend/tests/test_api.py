@@ -119,6 +119,36 @@ class GemmaGlotApiTests(unittest.TestCase):
         self.assertIn("orthographic_transcript", payload)
         self.assertIn("ipa_transcript", payload)
 
+    def test_demo_auth_creates_isolated_user_session(self) -> None:
+        first = self.request("POST", "/api/auth/demo")
+        second = self.request("POST", "/api/auth/demo")
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(first.json()["username"], "Demo")
+        self.assertEqual(second.json()["username"], "Demo")
+        self.assertNotEqual(first.json()["token"], second.json()["token"])
+
+        first_headers = {"Authorization": f"Bearer {first.json()['token']}"}
+        second_headers = {"Authorization": f"Bearer {second.json()['token']}"}
+        analysis_response = self.request(
+            "POST",
+            "/api/analyze/text",
+            headers=first_headers,
+            json={"language": "Spanish", "text": "Hola."},
+        )
+        self.assertEqual(analysis_response.status_code, 200)
+
+        first_history = self.request("GET", "/api/review/history", headers=first_headers)
+        second_history = self.request("GET", "/api/review/history", headers=second_headers)
+
+        self.assertEqual(len(first_history.json()), 1)
+        self.assertEqual(second_history.json(), [])
+
+        with SessionLocal() as db:
+            demo_users = db.query(User).filter(User.username.like("demo_%")).all()
+            self.assertEqual(len(demo_users), 2)
+
     def test_audio_analysis_rejects_unsupported_file(self) -> None:
         headers = self.auth_headers()
         response = self.request(
