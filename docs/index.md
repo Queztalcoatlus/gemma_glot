@@ -1,51 +1,48 @@
-# GemmaGlot: Multimodal Spanish Practice With Gemma 4
+# GemmaGlot: Multimodal Language Analysis With Gemma 4
 
-GemmaGlot is a language-learning demo built for the Gemma 4 Good Hackathon. It helps Spanish learners turn short text or speech samples into structured feedback: an orthographic transcript, IPA pronunciation, grammar observations, vocabulary terms, and a review history they can come back to later.
+GemmaGlot is a language-learning project built for the Gemma 4 Good Hackathon. It helps learners analyze short pieces of language they encounter while studying: text snippets, phrases, examples, or audio clips. For each item, GemmaGlot turns the input into structured analysis with an orthographic transcript, IPA pronunciation, grammar observations, vocabulary terms, and a review history the learner can come back to later. Spanish is the first implemented example language, but the system is designed so more languages can be added.
 
-The project is aimed at a practical education problem: learners often need feedback while practicing alone, but most tools either focus only on translation or require a teacher, a paid subscription, or a polished classroom environment. GemmaGlot is designed to be lightweight enough for a public demo while still showing how an open multimodal model can power a useful learning workflow.
+The project is aimed at a practical education problem: learners constantly run into unfamiliar language outside formal lessons, but most tools either provide a simple translation or require them to search separately for grammar, pronunciation, and vocabulary context. GemmaGlot is designed to be lightweight while still showing how an open multimodal model can power a useful learning workflow.
 
 ## What GemmaGlot Does
 
-GemmaGlot accepts either typed Spanish or a short audio recording. For each submission, it returns:
+GemmaGlot accepts either typed language input or a short audio clip. In the current implementation, Spanish is the enabled example language. For each submission, it returns:
 
-- A normalized Spanish transcript.
+- A normalized transcript.
 - An IPA transcription.
 - A concise grammar explanation.
 - Learner-focused vocabulary with lemmas, part of speech, gender when relevant, and example context.
 - Notes for uncertainty or limitations.
 - Saved history and vocabulary review for the current user session.
 
-The public demo includes a "Continue as demo" flow so judges can try the app without creating an account. Behind the scenes, each demo session gets an isolated temporary user record, which keeps the history feature usable without requiring a login or exposing another user's data.
-
 ## Why This Fits Gemma 4 Good
 
-The hackathon asks builders to use Gemma 4 for applications with real-world benefit. GemmaGlot focuses on education and access: it gives language learners a private, repeatable way to practice pronunciation and grammar with immediate feedback.
+The hackathon asks builders to use Gemma 4 for applications with real-world benefit. GemmaGlot focuses on education and access: it gives language learners a private, repeatable way to understand language they encounter during study, media consumption, conversation, or independent reading.
 
-This matters because language learning is often unevenly distributed. People with access to tutors, immersion programs, or formal classes get correction. People studying independently often get flashcards and translation, but not much analysis of what they actually said or wrote. GemmaGlot tries to fill that gap with a small, focused workflow:
+This matters because language learning is often unevenly distributed. People with access to classes, immersion programs, or study groups can ask why a phrase works the way it does. People studying independently often get flashcards and translation, but not much structured explanation of the language they actually encounter. GemmaGlot tries to fill that gap with a small, focused workflow:
 
-1. Speak or type something in Spanish.
-2. Get structured feedback immediately.
+1. Capture or paste a short piece of language.
+2. Get structured analysis immediately.
 3. Save useful terms into a reviewable history.
-4. Repeat with short, low-pressure practice.
+4. Build a personal trail of examples from real learning material.
 
-The initial version supports Spanish only, but the backend data model is intentionally language-aware. Analysis records and vocabulary terms store a language field, so future languages can be added without redesigning the persistence layer.
+The initial version uses Spanish as the first example language, but the backend data model is intentionally language-aware. Analysis records and vocabulary terms store a language field, so future languages can be added without redesigning the persistence layer.
 
 ## How Gemma 4 Is Used
 
-Gemma 4 is the reasoning layer that turns language input into structured learning output. The app prompts the model to respond as JSON with a stable schema containing transcript, IPA, grammar feedback, vocabulary, and notes.
+Gemma 4 is the reasoning layer that turns encountered language into structured learning output. The app prompts the model to respond as JSON with a stable schema containing transcript, IPA, grammar analysis, vocabulary, and notes.
 
-There are two inference paths:
+The intended Gemma 4 path is self-hosted inference with vLLM:
 
-- **Self-hosted Gemma 4 with vLLM:** The target native-audio path uses Gemma 4 E4B behind vLLM's OpenAI-compatible API. This path lets the app send audio directly to a Gemma 4 model that supports audio input.
-- **Google-hosted Gemma API fallback:** The public app can also use a Google-hosted Gemma model for availability. Because the Google API path does not provide the same native audio input behavior, audio is first transcribed with Google Cloud Speech-to-Text, then Gemma analyzes the transcript. In that mode, IPA is inferred from text rather than directly from the audio signal.
+- **Self-hosted Gemma 4 with vLLM:** The native-audio path uses Gemma 4 E4B behind vLLM's OpenAI-compatible API. This path lets the app send audio directly to a Gemma 4 model that supports audio input.
 
-This split keeps the app usable while GPU deployment is being finalized, but preserves the architecture needed for full Gemma 4 multimodal audio analysis.
+The backend also has a provider abstraction so deployment can switch between a self-hosted Gemma model and an externally hosted Gemma API. The public hackathon setup is described separately below so the core product design is not tied to one temporary hosting configuration.
 
 ## User Experience
 
-The interface is deliberately simple. A learner signs in or starts a demo session, chooses text or audio mode, submits a short Spanish sample, and receives feedback in the same workspace.
+The interface is deliberately simple. A learner opens a session, chooses text or audio mode, submits a short item in the enabled language, and receives analysis in the same workspace.
 
-The app avoids turning the experience into a chatbot because the goal is not open-ended conversation. The goal is repeatable analysis. Each result has the same structure, which makes it easier for learners to compare attempts over time and review vocabulary later.
+The app avoids turning the experience into a chatbot because the goal is not open-ended conversation. The goal is repeatable analysis of language artifacts learners want to understand. Each result has the same structure, which makes it easier to compare examples over time and review vocabulary later.
 
 The audio UI also labels the IPA source clearly:
 
@@ -60,12 +57,22 @@ GemmaGlot is a small full-stack app:
 
 - **Frontend:** Static single-page app served by FastAPI.
 - **Backend:** FastAPI API for auth, text analysis, audio analysis, history, and vocabulary.
-- **Database:** SQLAlchemy models with SQLite for the demo deployment, with a path to Cloud SQL for durable production history.
+- **Database:** SQLAlchemy models for users, analysis history, and saved vocabulary.
 - **Inference providers:** Google GenAI or vLLM, selected by environment variables.
-- **Speech fallback:** Google Cloud Speech-to-Text is automatically used for audio when the Google provider is selected.
-- **Deployment:** Google Cloud Run for the app container; a separate Cloud Run GPU or GPU VM path for vLLM-hosted Gemma 4.
+- **Deployment:** One web app container plus a separately scalable model service for self-hosted Gemma 4.
 
 The app service and the model service are intentionally separate. That makes it possible to keep the public web app small and cheap while scaling GPU inference independently.
+
+## Demo Setup
+
+The public hackathon demo uses a practical hosting setup so judges can try the project without creating accounts or waiting for a dedicated GPU model service to be available.
+
+- **Access:** The deployed app includes a "Continue as demo" flow. Each session gets an isolated temporary user record, so history and vocabulary review work without requiring a signup.
+- **App hosting:** The FastAPI app and static frontend are deployed on Google Cloud Run.
+- **Inference:** The demo can use a Google-hosted Gemma model for text analysis.
+- **Audio fallback:** In the Google-hosted path, audio is transcribed with Google Cloud Speech-to-Text before Gemma analyzes the transcript. In this mode, IPA is inferred from text rather than directly from the original audio signal.
+- **Data storage:** The short-lived demo deployment can use SQLite inside the app container. A production deployment should use an external database such as Cloud SQL for durable history.
+- **Model hosting path:** The intended native-audio setup is still a separate vLLM service running Gemma 4 E4B, either on Cloud Run GPU or a GPU VM.
 
 ## Data Model
 
@@ -77,7 +84,7 @@ The app stores analysis and vocabulary as structured records rather than raw fre
 - Multi-language expansion.
 - Better progress tracking.
 
-Even though the current product only enables Spanish, the stored analysis schema is not hard-coded to Spanish. The runtime inference gate is Spanish-only for now because the prompts and evaluation expectations are Spanish-specific, but the data shape can support more languages.
+Even though the current product enables Spanish as the first example, the stored analysis schema is not hard-coded to any one language. The runtime currently gates requests to the implemented example because the prompts and tests need to be expanded language by language, but the data shape can support more languages.
 
 ## Engineering Decisions
 
@@ -87,11 +94,7 @@ The model is asked for a strict JSON response. This keeps the frontend predictab
 
 ### Provider abstraction
 
-The backend can switch between Google-hosted Gemma and a vLLM-hosted Gemma model through configuration. This keeps development and judging practical while preserving a self-hosted open-model path.
-
-### Public demo without passwords
-
-The demo endpoint creates isolated temporary accounts. Judges can experience history and saved vocabulary without needing a login, and without all public users sharing one global dummy account.
+The backend can switch between a managed Gemma API and a vLLM-hosted Gemma model through configuration. This keeps deployment flexible while preserving a self-hosted open-model path.
 
 ### Clear audio limitations
 
@@ -101,19 +104,17 @@ The app distinguishes between direct audio analysis and transcript-based IPA. Th
 
 GemmaGlot is still a hackathon prototype. The main limitations are:
 
-- Spanish is the only enabled language.
-- SQLite is acceptable for a short demo, but Cloud SQL would be better for durable production history.
-- The Google provider audio path depends on ASR, so IPA may lose speaker-specific pronunciation details.
+- Spanish is the first enabled example language; additional languages can be added by extending prompts, UI options, and tests.
 - Self-hosted Gemma 4 audio inference depends on GPU availability and the final vLLM deployment.
-- The app is designed for short learning samples, not long lectures or full tutoring sessions.
+- The app is designed for short encountered language samples, not long lectures or full tutoring sessions.
 
 ## Future Work
 
 The next versions could add:
 
-- Full self-hosted Gemma 4 E4B audio deployment for the public demo.
+- Full self-hosted Gemma 4 E4B audio deployment.
 - More languages using the existing language-aware data structure.
-- Learner level selection, such as beginner, intermediate, and advanced feedback.
+- Learner level selection, such as beginner, intermediate, and advanced explanations.
 - Spaced repetition for saved vocabulary.
 - Pronunciation contrast exercises.
 - Cloud SQL-backed persistent history.
@@ -121,7 +122,7 @@ The next versions could add:
 
 ## Why I Built It This Way
 
-The main design goal was to make Gemma 4 useful inside a real learning loop, not just to show that the model can answer questions. A learner gives the app language. GemmaGlot turns it into feedback. The learner can save and revisit that feedback. That loop is small, but it is real.
+The main design goal was to make Gemma 4 useful inside a real learning loop, not just to show that the model can answer questions. A learner encounters language, brings it into GemmaGlot, and gets an analysis they can save and revisit. That loop is small, but it is real.
 
 Gemma 4 is a good fit because the model family is built for efficient, multilingual, multimodal use. The official Gemma 4 materials describe support for audio and visual understanding, long-context reasoning, and more than 140 languages, while also emphasizing open deployment options. Those properties map directly to the kind of accessible language-learning assistant GemmaGlot is trying to become.
 
