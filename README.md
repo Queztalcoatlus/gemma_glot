@@ -247,6 +247,65 @@ gcloud run deploy "$SERVICE_NAME" \
 
 If only environment variables or secrets changed, skip the build step and run only `gcloud run deploy`.
 
+### Switch inference mode
+
+After the app image has been built, you can switch the same Cloud Run app service between the two inference setups by redeploying with different runtime environment variables.
+
+Set the shared variables first:
+
+```bash
+PROJECT_ID=your-google-cloud-project-id
+REGION=us-central1
+SERVICE_NAME=gemmaglot-app
+AR_REPO_NAME=gemmaglot-app
+IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$AR_REPO_NAME/$SERVICE_NAME"
+```
+
+Google API mode uses Google GenAI for analysis and Google Cloud Speech-to-Text Chirp 3 for audio transcription:
+
+```bash
+GOOGLE_MODEL=gemma-4-26b-a4b-it
+
+gcloud run deploy "$SERVICE_NAME" \
+  --image="$IMAGE" \
+  --region="$REGION" \
+  --allow-unauthenticated \
+  --cpu=1 \
+  --memory=1Gi \
+  --max-instances=1 \
+  --timeout=300 \
+  --port=8000 \
+  --set-env-vars=PROVIDER=google,MODEL="$GOOGLE_MODEL",GOOGLE_CLOUD_PROJECT="$PROJECT_ID",GOOGLE_CLOUD_LOCATION=us,SPEECH_LANGUAGE_CODE=es-US,SPEECH_MODEL=chirp_3,VLLM_TIMEOUT_SECONDS=300 \
+  --update-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest
+```
+
+Cloud Run vLLM mode sends text and audio analysis to the deployed OpenAI-compatible vLLM service:
+
+```bash
+VLLM_BASE_URL=https://your-vllm-cloud-run-service-url/v1
+VLLM_MODEL=google/gemma-4-E4B-it
+
+gcloud run deploy "$SERVICE_NAME" \
+  --image="$IMAGE" \
+  --region="$REGION" \
+  --allow-unauthenticated \
+  --cpu=1 \
+  --memory=1Gi \
+  --max-instances=1 \
+  --timeout=300 \
+  --port=8000 \
+  --set-env-vars=PROVIDER=vllm,MODEL="$VLLM_MODEL",VLLM_BASE_URL="$VLLM_BASE_URL",VLLM_TIMEOUT_SECONDS=600 \
+  --update-secrets=VLLM_API_KEY=VLLM_API_KEY:latest
+```
+
+Check which mode is live:
+
+```bash
+gcloud run services describe "$SERVICE_NAME" \
+  --region="$REGION" \
+  --format='yaml(spec.template.spec.containers[0].env,status.latestReadyRevisionName,status.url)'
+```
+
 For vLLM-hosted text and audio analysis:
 
 ```env
