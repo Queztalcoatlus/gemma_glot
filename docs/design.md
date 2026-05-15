@@ -24,7 +24,7 @@ The app is designed with a language-aware data model, but Spanish is the only en
 - Token-authenticated API requests.
 - Spanish text analysis.
 - Spanish audio analysis from browser recording or uploaded file.
-- In-browser recording capped at 60 seconds.
+- In-browser recording capped at 30 seconds.
 - Audio upload validation and a 16 MB server-side file limit.
 - Structured analysis responses with translation, syntax, vocabulary, and notes.
 - IPA output for audio responses.
@@ -269,7 +269,7 @@ Server constraints:
 
 Browser constraints:
 
-- Recording is capped at 60 seconds.
+- Recording is capped at 30 seconds.
 - The UI shows recording duration.
 - The UI exposes text and audio as distinct modes.
 

@@ -12,7 +12,13 @@ TEST_DB_DIR = tempfile.TemporaryDirectory()
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(TEST_DB_DIR.name) / 'test.db'}"
 
 from backend.app.db import SessionLocal, init_db
-from backend.app.inference import _speech_api_endpoint, _transcribe_with_google_speech_sync, _vllm_audio_messages, analyze_audio
+from backend.app.inference import (
+    _normalize_analysis_payload,
+    _speech_api_endpoint,
+    _transcribe_with_google_speech_sync,
+    _vllm_audio_messages,
+    analyze_audio,
+)
 from backend.app.main import app
 from backend.app.models import AnalysisRecord, AuthToken, User, VocabularySave, VocabularyTerm
 from backend.app.schemas import TextAnalysisResponse
@@ -218,6 +224,29 @@ class GemmaGlotApiTests(unittest.TestCase):
         self.assertEqual(content[1]["type"], "input_audio")
         self.assertEqual(content[1]["input_audio"]["format"], "webm")
         self.assertTrue(content[1]["input_audio"]["data"])
+
+    def test_model_payload_normalizes_common_schema_aliases(self) -> None:
+        payload = {
+            "ipa_transcript": ["ˈola"],
+            "orthographic_transcript": ["Hola", "mundo."],
+            "english_translation": ["Hello", "world."],
+            "vocabulary": [
+                {"part_of_speech": "v", "gender": "NA", "level": "a1"},
+                {"part_of_speech": "prep", "gender": "m/f", "level": "n/a"},
+            ]
+        }
+
+        normalized = _normalize_analysis_payload(payload)
+
+        self.assertEqual(normalized["ipa_transcript"], "ˈola")
+        self.assertEqual(normalized["orthographic_transcript"], "Hola mundo.")
+        self.assertEqual(normalized["english_translation"], "Hello world.")
+        self.assertEqual(normalized["vocabulary"][0]["part_of_speech"], "v.")
+        self.assertEqual(normalized["vocabulary"][0]["gender"], "n/a")
+        self.assertEqual(normalized["vocabulary"][0]["level"], "A1")
+        self.assertEqual(normalized["vocabulary"][1]["part_of_speech"], "prep.")
+        self.assertEqual(normalized["vocabulary"][1]["gender"], "m./f.")
+        self.assertEqual(normalized["vocabulary"][1]["level"], "N/A")
 
     def test_google_speech_requires_project(self) -> None:
         with patch.dict(os.environ, {}, clear=True):

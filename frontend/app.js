@@ -2,12 +2,20 @@ const { createElement: h, useEffect, useLayoutEffect, useRef, useState } = React
 
 const SAMPLE_TEXT =
   "¡Hola, Mundo!";
-const MAX_RECORDING_SECONDS = 60;
+const MAX_RECORDING_SECONDS = 30;
 const TOKEN_KEY = "gemmaglot.token";
 const USERNAME_KEY = "gemmaglot.username";
 
 function formatTime(value) {
   return `00:${String(value).padStart(2, "0")}`;
+}
+
+function formatIpa(value) {
+  const transcript = String(value || "").trim();
+  if (!transcript) return "";
+  if (transcript.startsWith("[") && transcript.endsWith("]")) return transcript;
+  if (transcript.startsWith("/") && transcript.endsWith("/")) return `[${transcript.slice(1, -1).trim()}]`;
+  return `[${transcript}]`;
 }
 
 function vocabularyKey(item) {
@@ -443,7 +451,7 @@ function AudioPane({ setFile, selectedAudioLabel, recording, seconds, startRecor
         "div",
         null,
         h("div", { className: "meter", "aria-hidden": true }, h("div", { className: "meter-fill", style: { width: `${(seconds / MAX_RECORDING_SECONDS) * 100}%` } })),
-        h("div", { className: "time" }, `${formatTime(seconds)} / 01:00`)
+        h("div", { className: "time" }, `${formatTime(seconds)} / ${formatTime(MAX_RECORDING_SECONDS)}`)
       ),
       h("button", { className: `record-action${recording ? " recording" : ""}`, type: "button", onClick: recording ? stopRecording : startRecording }, recording ? "Stop" : "Record")
     )
@@ -598,7 +606,7 @@ function ResultContent({ result, onSaveWord, savedWords = new Set() }) {
         "div",
         { className: "transcript" },
         h("p", { className: "quote" }, h("span", { className: "quote-label" }, "Text"), transcript),
-        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, ipaLabel(result)), result.ipa_transcript) : null
+        result.input_type === "audio" ? h("p", { className: "quote ipa" }, h("span", { className: "quote-label" }, ipaLabel(result)), formatIpa(result.ipa_transcript)) : null
       )
     ),
     h("section", { className: "result-section" }, h("h3", { className: "section-label" }, "Translation"), h("p", { className: "quote translation" }, result.english_translation)),

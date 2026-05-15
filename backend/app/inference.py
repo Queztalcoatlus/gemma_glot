@@ -24,6 +24,71 @@ from backend.app.schemas import AudioAnalysisResponse, TextAnalysisResponse
 load_env()
 SUPPORTED_LANGUAGE = "Spanish"
 SUPPORTED_LANGUAGES = frozenset({SUPPORTED_LANGUAGE})
+PART_OF_SPEECH_ALIASES = {
+    "n": "n.",
+    "noun": "n.",
+    "sustantivo": "n.",
+    "v": "v.",
+    "verb": "v.",
+    "verbo": "v.",
+    "adj": "adj.",
+    "adjective": "adj.",
+    "adjetivo": "adj.",
+    "adv": "adv.",
+    "adverb": "adv.",
+    "adverbio": "adv.",
+    "pron": "pron.",
+    "pronoun": "pron.",
+    "pronombre": "pron.",
+    "prep": "prep.",
+    "preposition": "prep.",
+    "preposicion": "prep.",
+    "preposición": "prep.",
+    "conj": "conj.",
+    "conjunction": "conj.",
+    "conjuncion": "conj.",
+    "conjunción": "conj.",
+    "interj": "interj.",
+    "interjection": "interj.",
+    "interjeccion": "interj.",
+    "interjección": "interj.",
+    "expr": "expr.",
+    "expression": "expr.",
+    "expresion": "expr.",
+    "expresión": "expr.",
+    "other": "other",
+}
+GENDER_ALIASES = {
+    "m": "m.",
+    "masc": "m.",
+    "masculine": "m.",
+    "masculino": "m.",
+    "f": "f.",
+    "fem": "f.",
+    "feminine": "f.",
+    "femenino": "f.",
+    "mf": "m./f.",
+    "m/f": "m./f.",
+    "m./f": "m./f.",
+    "m.f.": "m./f.",
+    "masculine/feminine": "m./f.",
+    "masculino/femenino": "m./f.",
+    "na": "n/a",
+    "n/a": "n/a",
+    "none": "n/a",
+    "not applicable": "n/a",
+    "no aplica": "n/a",
+}
+CEFR_LEVELS = frozenset({"A1", "A2", "B1", "B2", "C1", "C2", "N/A"})
+TOP_LEVEL_STRING_FIELDS = frozenset(
+    {
+        "language",
+        "source_text",
+        "orthographic_transcript",
+        "ipa_transcript",
+        "english_translation",
+    }
+)
 
 
 TEXT_SYSTEM_PROMPT = """
@@ -100,6 +165,56 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(cleaned[start : end + 1])
 
 
+def _normalize_analysis_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    for field in TOP_LEVEL_STRING_FIELDS:
+        if field in payload:
+            payload[field] = _normalize_string_field(payload[field])
+
+    vocabulary = payload.get("vocabulary")
+    if not isinstance(vocabulary, list):
+        return payload
+
+    for item in vocabulary:
+        if not isinstance(item, dict):
+            continue
+        if "part_of_speech" in item:
+            item["part_of_speech"] = _normalize_part_of_speech(item["part_of_speech"])
+        if "gender" in item:
+            item["gender"] = _normalize_gender(item["gender"])
+        if "level" in item:
+            item["level"] = _normalize_level(item["level"])
+    return payload
+
+
+def _normalize_string_field(value: Any) -> Any:
+    if isinstance(value, list):
+        return " ".join(str(item).strip() for item in value if str(item).strip())
+    return value
+
+
+def _normalize_part_of_speech(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    key = normalized.lower().rstrip(".")
+    return PART_OF_SPEECH_ALIASES.get(key, normalized)
+
+
+def _normalize_gender(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    key = normalized.lower().rstrip(".")
+    return GENDER_ALIASES.get(key, normalized)
+
+
+def _normalize_level(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip().upper()
+    return normalized if normalized in CEFR_LEVELS else value
+
+
 def _google_client():
     api_key = get_api_key()
     if not api_key:
@@ -155,10 +270,28 @@ async def _vllm_chat(messages: list[dict[str, Any]]) -> str:
 
     try:
         return await asyncio.to_thread(_send_vllm_request, request)
+    except urllib.error.HTTPError as exc:
+        raise InferenceError(_vllm_http_error_message(exc)) from exc
     except urllib.error.URLError as exc:
         raise InferenceError(
             "Could not reach vLLM. Start the vLLM OpenAI-compatible server, check VLLM_BASE_URL, then retry."
         ) from exc
+
+
+def _vllm_http_error_message(exc: urllib.error.HTTPError) -> str:
+    detail = exc.reason
+    try:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+    except Exception:
+        body = ""
+    if body:
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            detail = body
+        else:
+            detail = payload.get("error") or payload.get("message") or body
+    return f"vLLM returned HTTP {exc.code}: {detail}"
 
 
 async def _transcribe_with_google_speech(audio_bytes: bytes, language: str) -> str:
@@ -273,6 +406,7 @@ async def analyze_text(source_text: str, language: str) -> TextAnalysisResponse:
         prompt = f"{TEXT_SYSTEM_PROMPT}\n\nTarget language: {language}\nInput:\n{source_text}"
         try:
             payload = _extract_json(await _vllm_chat(_vllm_text_messages(prompt)))
+            payload = _normalize_analysis_payload(payload)
             return TextAnalysisResponse.model_validate(payload)
         except Exception as exc:
             raise InferenceError(str(exc)) from exc
@@ -285,6 +419,7 @@ async def analyze_text(source_text: str, language: str) -> TextAnalysisResponse:
     try:
         response = client.models.generate_content(model=get_model_name(), contents=prompt)
         payload = _extract_json(response.text or "")
+        payload = _normalize_analysis_payload(payload)
         return TextAnalysisResponse.model_validate(payload)
     except Exception as exc:
         raise InferenceError(str(exc)) from exc
@@ -302,6 +437,7 @@ async def analyze_audio(
     if provider == "vllm":
         try:
             payload = _extract_json(await _vllm_chat(_vllm_audio_messages(audio_bytes, filename, content_type, language)))
+            payload = _normalize_analysis_payload(payload)
             return AudioAnalysisResponse.model_validate(payload)
         except Exception as exc:
             raise InferenceError(str(exc)) from exc
@@ -315,6 +451,7 @@ async def analyze_audio(
     try:
         response = client.models.generate_content(model=get_model_name(), contents=prompt)
         payload = _extract_json(response.text or "")
+        payload = _normalize_analysis_payload(payload)
         analysis = AudioAnalysisResponse.model_validate(payload)
     except Exception as exc:
         raise InferenceError(str(exc)) from exc

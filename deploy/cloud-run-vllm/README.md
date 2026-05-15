@@ -81,6 +81,10 @@ gcloud builds submit \
 
 This bakes the model weights into the image so Cloud Run cold starts do not have to download the model from Hugging Face.
 
+The Dockerfile installs `cuda-compat-12-9` because the current vLLM image uses a newer CUDA stack than the default Cloud Run NVIDIA L4 driver. The compatibility library path is placed first in `LD_LIBRARY_PATH` so PyTorch can initialize CUDA on Cloud Run.
+
+It also installs `vllm[audio]`; Gemma 4 E2B/E4B audio requests need vLLM's audio extras for PyAV/audio decoding.
+
 ## 7. Deploy To Cloud Run
 
 ```bash
@@ -100,10 +104,13 @@ gcloud run deploy "$SERVICE_NAME" \
   --port=8000 \
   --no-cpu-throttling \
   --no-gpu-zonal-redundancy \
+  --no-deploy-health-check \
   --set-env-vars MODEL_NAME="$MODEL_NAME",MAX_MODEL_LEN=4096,MAX_NUM_SEQS=1,GPU_MEMORY_UTILIZATION=0.85,ENFORCE_EAGER=1 \
   --update-secrets VLLM_API_KEY=VLLM_API_KEY:latest \
   --startup-probe tcpSocket.port=8000,initialDelaySeconds=240,failureThreshold=1,timeoutSeconds=240,periodSeconds=240
 ```
+
+`--no-deploy-health-check` avoids spending the single approved L4 quota slot during deployment health checks. The first authenticated request will cold-start the model service.
 
 The service is public at the Cloud Run layer, but vLLM requires `Authorization: Bearer VLLM_API_KEY`. Do not expose the API key in frontend JavaScript.
 
